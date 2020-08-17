@@ -1,0 +1,178 @@
+<html> 
+	<head> 
+		<script src="https://code.jquery.com/jquery-3.5.1.slim.js" integrity="sha256-DrT5NfxfbHvMHux31Lkhxg42LY6of8TaYyK50jnxRnM=" crossorigin="anonymous"></script>
+	    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+	    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+
+	    <style type="text/css">
+	    	.full-width{
+	 			width:100%;
+	    	}
+            .textareaimg{
+                background-image: url("data:image/jpeg;base64,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");
+            }
+            .forcalcbg{
+                background-image: url("https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcRw8Uxf4AoEvjeQJStIdMDg6y_NcJIwikDa2Q&usqp=CAU");
+            }
+        </style>
+
+        <script>
+            function handle(e){
+                if(e.keyCode === 13){
+                solve(); // Ensure it is only this code that rusn
+                }
+            }
+            function dis(val) 
+			{ 
+				document.getElementById("result").value += val 
+			} 
+			function solve() 
+			{ 
+				var x = document.getElementById("result").value 
+				var y = eval(x) 
+				document.getElementById("result").value = ""
+				if(document.getElementById("history").value != "")
+				{
+					document.getElementById("history").value = document.getElementById("history").value + "\n"+x+" = "+y
+				}
+				else{
+					document.getElementById("history").value = document.getElementById("history").value +x+" = "+ y
+				}
+				
+			} 
+			function clr() 
+			{ 
+				document.getElementById("result").value = "" 
+			} 
+        </script>
+    </head>
+    <body background="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAHQArgMBIgACEQEDEQH/xAAaAAADAQEBAQAAAAAAAAAAAAAAAQIDBAcF/8QAKRAAAgIBBAEDBAIDAAAAAAAAAAECESEDEjFBUSJhgQQTcaEykUJi4f/EABUBAQEAAAAAAAAAAAAAAAAAAAAB/8QAFhEBAQEAAAAAAAAAAAAAAAAAABEB/9oADAMBAAIRAxEAPwD0VRcZXGPGUuzp0tRSWOfBp9q2NfTqOYpIqHB0bLJjW1lxYUSWDOzV8GMsAKyWKTXYWgEwuiqInFOkEN+odFV4CgqaGTK1wCYFpDSFHI7rktDoKC0DfggGkS6B+4NLoCJE7bNFHNsqgNouyzKJdgNxT5MnHPpbrwa9EdgS+Msh5NZRTRm0BGxN5BwXQ00NtLIGThLF8Amt9oNXVxeEvJEduUmuQjZSvpjZnD9hKVdgW+OCVS5EpyaK27vcKUpVHCsiDlOVN1jii0GNwDSUHVc8suMazeTNK5VwkapAPbYOI0ACSBoYmBUWVZEWMCgEgsBk4CTdGMpVymBo0nxSObWk42qbfVFud8Uc/wBRc4Yt+UsAZy1dydK9vuqZUNZulKNOr8on6fSTh6ubyjqjppZAm5LojTlunc1lYNnhcmP23vUoyddp9hG1p8DtpWSss0rAVk4TfDcc2U4VbbeV/RqDaoCIJ27+DWJlt6VpeLKgtuF/dgW3RO5eSZPNPgiW3dbdJfAGydibIhK0nbf5KdPyBUWOyYlAUBKHYC1G+kZSfBsZShbAj7TXyPY/b5Q9/THaAy+21qbrVNGiBtENpq4sCnyOjGLmpNuS2+GPfKXEa9wNMWPLf8qXiiEry+SnhWBYbRQus37FXRdBQt1cKwbsCDKTlKbK2+RpDASKBAwJjMpT9jni5+z/ACg9aksWmEdLlgakiIvBMpO8K/kK2t9Ev3YlJUs8ic1+QM9S0vT+zNaskvUuO7NZu1hfsz2Tq1FX4sDOWs5U4Rddtlr/AEks/KCX3H/gtvsxJz0oNyhnwnYGWpoynO5S2Jcd2dUNzgrlfxRO9PMov+ilNeUgGlXFDTfgVoNyQFXgE7ZLljgSeLSA14Bmam3gLYFL3GZqSWHyUmBQCsVlBErBz6espK0mvKZqmQUhk2OwBxi+UhK02n8DsmUqAbaQWmYqT3YTrtsN3FfsDViEmAD5J2jACUn5Ek7yrLABO/A4qlyF1yCdgJvbnoJTUVbdC1LrCT/JzrTlut3zzV2B0JqWaQ7rgwUG5XJtqsXRcZVhZA0U8tdjsxlN3/H/AINTiuWgOeMH9xTp2jqhK0Y7ioyCNrGpGSlZSCtGJgJgFhYrFYFWKxWTYGlibFeCZSpAXYpPBN3hDSAS4y7C2uEVQwFv8huXkZnNZ4QFOS7aJlqQi6clfgxkvNV4bMow2wcdzt9oDWerJr0492jBpLMn+ilp+hRm3Ku2c+tqKFKwjo05NrJpNtQwIAK05OkbxYgAcpNBuYgIp2S2AATue6gk8ABQW7oayxgA+irEADsdiABNsl8gBAm8ES/AAUc+vOSjyfD+u1pqWH2ABH//2Q==">
+        <div class="container mt-5">
+			<div class="row">
+				<div class="col-md-3">
+				</div>
+				<div class="col-md-6 text-center py-3 shadow bg-dark forcalcbg">
+					<div class="row btn btn-primary my-3 full-width">
+						<div class="col">
+							Calculator
+						</div>
+                    </div>
+                    <div class="row">
+						<div class="col my-3">
+							<textarea style="text-align: right;" readonly id="history" name="history" rows="4" class="full-width p-3 textareaimg"></textarea>
+						</div>
+                    </div>
+                    <div class="row">
+						<div class="col-md-10">
+							<div class="row">
+								<div class="col">
+                                    <form action="#">
+                                        <input type="text" class="full-width" id="result" onkeypress="handle(event)" />
+                                    </form>
+									<!-- <input type="text" class="full-width" id="result" /> -->
+                                </div>
+                            </div>
+                            <div class="row">
+								<div class="col-md-4">
+									<div class="row">
+										<div class="col">
+											<input type="button" value="1" class="full-width bg-danger text-light" onclick="dis('1')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="4" class="full-width bg-danger text-light" onclick="dis('4')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="7" class="full-width bg-danger text-light" onclick="dis('7')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="." class="full-width bg-success text-light" onclick="dis('.')"/>
+										</div>
+									</div>
+                                </div>
+                                <div class="col-md-4">
+									<div class="row">
+										<div class="col">
+											<input type="button" value="2" class="full-width bg-danger text-light" onclick="dis('2')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="5" class="full-width bg-danger text-light" onclick="dis('5')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="8" class="full-width bg-danger text-light" onclick="dis('8')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="0" class="full-width bg-danger text-light" onclick="dis('0')"/>
+										</div>
+									</div>
+								</div>
+
+								<div class="col-md-4">
+									<div class="row">
+										<div class="col">
+											<input type="button" value="3" class="full-width bg-danger text-light" onclick="dis('3')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="6" class="full-width bg-danger text-light" onclick="dis('6')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="9" class="full-width bg-danger text-light" onclick="dis('9')"/>
+										</div>
+									</div>
+									<div class="row">
+										<div class="col">
+											<input type="button" value="=" class="full-width bg-success text-light" onclick="solve()"/>
+										</div>
+									</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+							<div class="row mb-3">
+								<div class="col">
+									<input type="button" value="C" class="full-width bg-secondary text-light" onclick="clr()"/>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col">
+									<input type="button" value="/" class="full-width bg-success text-light" onclick="dis('/')"/>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col">
+									<input type="button" value="-" class="full-width bg-success text-light" onclick="dis('-')"/>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col">
+									<input type="button" value="+" class="full-width bg-success text-light" onclick="dis('+')"/>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col">
+									<input type="button" value="*" class="full-width bg-success text-light" onclick="dis('*')"/>
+								</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
+        
