@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aswin Raj R</title>
+<meta name="description" content="Aswin Raj R — software engineer." />
+<meta name="author" content="Aswin Raj R" />
+<meta name="theme-color" content="#0d1117" />
+
+<meta property="og:title" content="Aswin Raj R" />
+<meta property="og:description" content="Software engineer. Personal site." />
+<meta property="og:type" content="website" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-2: #161b22;
+    --bg-3: #1c222b;
+    --border: #30363d;
+    --border-soft: #21262d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --text-dim: #6e7681;
+    --accent: #58a6ff;
+    --accent-2: #79c0ff;
+    --accent-soft: rgba(88, 166, 255, 0.12);
+    --green: #3fb950;
+    --radius: 10px;
+    --maxw: 880px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(88, 166, 255, 0.12), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 10%, rgba(63, 185, 80, 0.06), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  a { color: var(--accent); text-decoration: none; transition: color 0.15s ease; }
+  a:hover { color: var(--accent-2); }
+
+  ::selection { background: var(--accent-soft); color: var(--accent-2); }
+
+  /* layout */
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(13, 17, 23, 0.72);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  nav .wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  nav .brand {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--text);
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  nav .brand .dot { color: var(--accent); }
+  nav ul {
+    list-style: none; display: flex; gap: 28px; margin: 0; padding: 0;
+  }
+  nav ul a {
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  nav ul a:hover { color: var(--text); }
+  @media (max-width: 600px) {
+    nav ul { gap: 18px; }
+    nav ul a { font-size: 12px; }
+  }
+
+  /* hero */
+  header.hero {
+    padding: 96px 0 72px;
+  }
+  .hero .tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 999px;
+    margin-bottom: 28px;
+  }
+  .hero .tag .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(63, 185, 80, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+  }
+  .hero h1 {
+    font-size: clamp(40px, 7vw, 64px);
+    line-height: 1.05;
+    margin: 0 0 20px;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero p.lead {
+    font-size: clamp(17px, 2.2vw, 19px);
+    color: var(--text-muted);
+    max-width: 620px;
+    margin: 0 0 32px;
+  }
+  .hero p.lead strong { color: var(--text); font-weight: 500; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .btn.primary {
+    background: var(--accent);
+    color: #0d1117;
+    border-color: var(--accent);
+  }
+  .btn.primary:hover { background: var(--accent-2); color: #0d1117; border-color: var(--accent-2); }
+
+  /* sections */
+  section { padding: 72px 0; border-top: 1px solid var(--border-soft); }
+  section h2 {
+    font-size: 14px;
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+    margin: 0 0 8px;
+  }
+  section h2::before { content: "// "; color: var(--accent); }
+  section .section-title {
+    font-size: clamp(26px, 4vw, 32px);
+    margin: 0 0 36px;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  /* about */
+  .about-grid {
+    display: grid; grid-template-columns: 1fr 280px; gap: 48px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .about-grid { grid-template-columns: 1fr; gap: 32px; }
+  }
+  .about p { color: var(--text-muted); margin: 0 0 16px; }
+  .about p strong { color: var(--text); font-weight: 500; }
+  .now {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    font-size: 14px;
+  }
+  .now h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+    text-transform: lowercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+  }
+  .now ul { margin: 0; padding-left: 18px; color: var(--text-muted); }
+  .now li { margin-bottom: 6px; }
+  .now li::marker { color: var(--accent); }
+
+  /* projects */
+  .projects { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 720px) { .projects { grid-template-columns: 1fr; } }
+  .project {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: all 0.18s ease;
+    display: flex; flex-direction: column; gap: 12px;
+    text-decoration: none;
+    color: inherit;
+  }
+  .project:hover {
+    border-color: var(--accent);
+    background: var(--bg-3);
+    transform: translateY(-2px);
+  }
+  .project-head { display: flex; align-items: center; justify-content: space-between; }
+  .project-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+  .project:hover .project-title { color: var(--accent); }
+  .project-arrow { color: var(--text-dim); font-family: var(--mono); }
+  .project:hover .project-arrow { color: var(--accent); }
+  .project p { margin: 0; color: var(--text-muted); font-size: 14.5px; line-height: 1.55; }
+  .stack { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .stack span {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px; border-radius: 4px;
+  }
+
+  /* experience / timeline */
+  .timeline { display: flex; flex-direction: column; gap: 28px; }
+  .row {
+    display: grid; grid-template-columns: 140px 1fr; gap: 24px;
+  }
+  @media (max-width: 600px) { .row { grid-template-columns: 1fr; gap: 6px; } }
+  .row .when {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    padding-top: 3px;
+  }
+  .row h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .row .org { color: var(--text-muted); font-size: 14px; margin: 0 0 8px; }
+  .row p { color: var(--text-muted); font-size: 14.5px; margin: 0; }
+
+  /* contact */
+  .contact-list {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .contact-list a {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    transition: all 0.15s ease;
+  }
+  .contact-list a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .contact-list a .label { color: var(--text-dim); font-size: 12px; display: block; }
+  .contact-list a:hover .label { color: var(--text-muted); }
+
+  /* footer */
+  footer {
+    border-top: 1px solid var(--border-soft);
+    padding: 32px 0 48px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  /* misc */
+  .kbd {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="#top" class="brand">aswin<span class="dot">.</span>raj</a>
+    <ul>
+      <li><a href="#about">about</a></li>
+      <li><a href="#work">work</a></li>
+      <li><a href="#projects">projects</a></li>
+      <li><a href="#contact">contact</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="tag"><span class="pulse"></span> [REPLACE ME] currently building things at Microsoft</div>
+    <h1>Aswin Raj R<span class="accent">.</span></h1>
+    <p class="lead">
+      [REPLACE ME] <strong>Software engineer</strong> working on
+      [REPLACE ME &mdash; what you build, e.g. AI tooling, distributed systems, developer experience].
+      Previously studied Electrical Engineering at IIT Madras.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#contact">get in touch &rarr;</a>
+      <a class="btn" href="https://github.com/aswnrj" target="_blank" rel="noopener">github</a>
+      <a class="btn" href="[REPLACE ME &mdash; resume.pdf url]" target="_blank" rel="noopener">resume</a>
+    </div>
+  </div>
+</header>
+
+<section id="about" class="about">
+  <div class="wrap">
+    <h2>about</h2>
+    <h3 class="section-title">A bit about me.</h3>
+    <div class="about-grid">
+      <div>
+        <p>
+          [REPLACE ME] I&rsquo;m an engineer who likes building tools that make other engineers faster.
+          My current focus is <strong>[REPLACE ME &mdash; e.g. applied AI / developer infra / data pipelines]</strong>,
+          and I care a lot about clarity in code, systems, and writing.
+        </p>
+        <p>
+          [REPLACE ME] Before Microsoft I was at <strong>[REPLACE ME &mdash; previous company / role]</strong>,
+          and before that I studied Electrical Engineering at IIT Madras, where I picked up a love for
+          ML and the math behind it.
+        </p>
+        <p>
+          [REPLACE ME] Outside of work I&rsquo;m usually
+          <strong>[REPLACE ME &mdash; reading, running, music, etc.]</strong>.
+        </p>
+      </div>
+      <aside class="now">
+        <h3>// now</h3>
+        <ul>
+          <li>[REPLACE ME] Shipping at Microsoft</li>
+          <li>[REPLACE ME] Learning [topic]</li>
+          <li>[REPLACE ME] Reading [book]</li>
+          <li>Based in [REPLACE ME &mdash; city]</li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section id="work">
+  <div class="wrap">
+    <h2>work</h2>
+    <h3 class="section-title">Where I&rsquo;ve been.</h3>
+    <div class="timeline">
+      <div class="row">
+        <div class="when">[REPLACE ME]<br/>20XX &mdash; present</div>
+        <div>
+          <h3>[REPLACE ME &mdash; Role title]</h3>
+          <p class="org">Microsoft</p>
+          <p>[REPLACE ME] One or two lines on what you do here &mdash; team, product, the kind of problems you solve.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="when">[REPLACE ME]<br/>20XX &mdash; 20XX</div>
+        <div>
+          <h3>[REPLACE ME &mdash; Previous role]</h3>
+          <p class="org">[REPLACE ME &mdash; Company]</p>
+          <p>[REPLACE ME] What you worked on. Impact, scale, or interesting tech.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="when">2018 &mdash; 2022</div>
+        <div>
+          <h3>B.Tech, Electrical Engineering</h3>
+          <p class="org">Indian Institute of Technology, Madras</p>
+          <p>[REPLACE ME] Coursework / focus / honors / clubs &mdash; whatever&rsquo;s worth keeping.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="projects">
+  <div class="wrap">
+    <h2>projects</h2>
+    <h3 class="section-title">Things I&rsquo;ve built.</h3>
+    <div class="projects">
+
+      <a class="project" href="[REPLACE ME &mdash; project url]" target="_blank" rel="noopener">
+        <div class="project-head">
+          <h4 class="project-title">[REPLACE ME &mdash; Project name]</h4>
+          <span class="project-arrow">&rarr;</span>
+        </div>
+        <p>[REPLACE ME] One or two sentences on what it does and why it matters.</p>
+        <div class="stack"><span>tech</span><span>tech</span><span>tech</span></div>
+      </a>
+
+      <a class="project" href="[REPLACE ME]" target="_blank" rel="noopener">
+        <div class="project-head">
+          <h4 class="project-title">[REPLACE ME &mdash; Project name]</h4>
+          <span class="project-arrow">&rarr;</span>
+        </div>
+        <p>[REPLACE ME] Short description.</p>
+        <div class="stack"><span>tech</span><span>tech</span></div>
+      </a>
+
+      <a class="project" href="[REPLACE ME]" target="_blank" rel="noopener">
+        <div class="project-head">
+          <h4 class="project-title">[REPLACE ME &mdash; Project name]</h4>
+          <span class="project-arrow">&rarr;</span>
+        </div>
+        <p>[REPLACE ME] Short description.</p>
+        <div class="stack"><span>tech</span><span>tech</span></div>
+      </a>
+
+      <a class="project" href="https://github.com/aswnrj" target="_blank" rel="noopener">
+        <div class="project-head">
+          <h4 class="project-title">More on GitHub</h4>
+          <span class="project-arrow">&rarr;</span>
+        </div>
+        <p>Smaller experiments, scripts, and works-in-progress live on my GitHub.</p>
+        <div class="stack"><span>github</span></div>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <h2>contact</h2>
+    <h3 class="section-title">Say hi.</h3>
+    <p style="color:var(--text-muted); max-width:580px; margin:0;">
+      [REPLACE ME] I&rsquo;m always happy to chat about engineering, AI, or anything you&rsquo;re building.
+      The fastest way to reach me is email.
+    </p>
+    <div class="contact-list">
+      <a href="mailto:aswinrajr@microsoft.com">
+        <div>
+          <span class="label">email</span>
+          aswinrajr@microsoft.com
+        </div>
+      </a>
+      <a href="https://github.com/aswnrj" target="_blank" rel="noopener">
+        <div>
+          <span class="label">github</span>
+          @aswnrj
+        </div>
+      </a>
+      <a href="https://www.linkedin.com/in/aswin-raj-b2b0941aa/" target="_blank" rel="noopener">
+        <div>
+          <span class="label">linkedin</span>
+          aswin-raj
+        </div>
+      </a>
+      <a href="[REPLACE ME &mdash; twitter / x url]" target="_blank" rel="noopener">
+        <div>
+          <span class="label">x / twitter</span>
+          [REPLACE ME]
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>&copy; <span id="yr"></span> Aswin Raj R</div>
+    <div>built with <span class="kbd">html</span> <span class="kbd">css</span> &mdash; no frameworks</div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+# this file contains the social media links and usernames of the author
+# the socials will be displayed in the order they are defined here
+# for more information, please refer to the documentation of jekyll-socials plugin: https://github.com/george-gca/jekyll-socials
+
+email: aswnrj.r@gmail.com
+github_username: aswnrj
+linkedin_username: aswnrj
+# x_username: # your x (twitter) handle, no @ — uncomment if you have one
+# scholar_userid: # your Google Scholar ID — fill in once you have publications
+
+# cv_pdf: /assets/pdf/resume.pdf # uncomment and drop your resume here once ready
+# rss_icon: true # uncomment to show an RSS icon in the social row (the feed itself stays at /feed.xml regardless)
