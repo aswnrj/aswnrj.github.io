@@ -1,5 +1,163 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://aswnrj.github.io/feed.xml" rel="self" type="application/atom+xml" /><link href="https://aswnrj.github.io/" rel="alternate" type="text/html" hreflang="en" /><updated>2026-05-03T18:39:13+00:00</updated><id>https://aswnrj.github.io/feed.xml</id><title type="html">blank</title><subtitle>Personal site of Aswin Raj Rajan — software engineer, building things and writing about them.
-</subtitle><entry><title type="html">T4 GPU + Llama: why your attention OOMs at 16K and the one-line fix</title><link href="https://aswnrj.github.io/blog/2026/flashattention-t4/" rel="alternate" type="text/html" title="T4 GPU + Llama: why your attention OOMs at 16K and the one-line fix" /><published>2026-05-03T12:00:00+00:00</published><updated>2026-05-03T12:00:00+00:00</updated><id>https://aswnrj.github.io/blog/2026/flashattention-t4</id><content type="html" xml:base="https://aswnrj.github.io/blog/2026/flashattention-t4/"><![CDATA[<p>I was benchmarking Llama 3.2-1B inference on a free Google Colab T4 GPU, hoping to push the KV cache out to 16K context. The job OOMed at 4K. I needed long-context numbers to be meaningful.</p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://aswnrj.github.io/feed.xml" rel="self" type="application/atom+xml" /><link href="https://aswnrj.github.io/" rel="alternate" type="text/html" hreflang="en" /><updated>2026-05-04T15:59:50+00:00</updated><id>https://aswnrj.github.io/feed.xml</id><title type="html">blank</title><subtitle>Personal site of Aswin Raj Rajan — software engineer, building things and writing about them.
+</subtitle><entry><title type="html">Why my INT4 and INT8 KV cache quantization gave bitwise-identical perplexity</title><link href="https://aswnrj.github.io/blog/2026/two-pass-perplexity/" rel="alternate" type="text/html" title="Why my INT4 and INT8 KV cache quantization gave bitwise-identical perplexity" /><published>2026-05-04T14:00:00+00:00</published><updated>2026-05-04T14:00:00+00:00</updated><id>https://aswnrj.github.io/blog/2026/two-pass-perplexity</id><content type="html" xml:base="https://aswnrj.github.io/blog/2026/two-pass-perplexity/"><![CDATA[<p>I quantized the KV cache of Llama 3.2-1B to INT4 and to INT8 separately, expecting a small but meaningful perplexity difference between them. Both runs completed. Both reported perplexity <strong>8.591021385729238</strong>. Identical to fifteen decimal places.</p>
+
+<p>That’s not a small numerical difference. That’s the same number. Something was wrong with my benchmark.</p>
+
+<h2 id="the-setup">The setup</h2>
+
+<p>Standard sliding-window perplexity over the <code class="language-plaintext highlighter-rouge">WikiText-2</code> test split. For each window of 2048 tokens, run a forward pass with <code class="language-plaintext highlighter-rouge">past_key_values=fresh_cache</code>, compute cross-entropy on the last 512 positions, accumulate negative log-likelihood, divide by total tokens scored, exponentiate. About 560 windows, ~280K tokens scored.</p>
+
+<p>Three cache configurations, otherwise identical:</p>
+
+<ul>
+  <li><strong>FP16</strong>: standard <code class="language-plaintext highlighter-rouge">DynamicCache</code> (no quantization).</li>
+  <li><strong>INT8</strong>: HuggingFace <code class="language-plaintext highlighter-rouge">QuantizedCache(backend="hqq", nbits=8, q_group_size=64, residual_length=64)</code>.</li>
+  <li><strong>INT4</strong>: HuggingFace <code class="language-plaintext highlighter-rouge">QuantizedCache(backend="hqq", nbits=4, q_group_size=64, residual_length=64)</code>.</li>
+</ul>
+
+<p>Expected pattern: <code class="language-plaintext highlighter-rouge">FP16 ≈ INT8 &lt; INT4</code>, with a small gap and a slightly larger one.</p>
+
+<p>What I got:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variant</th>
+      <th>Perplexity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FP16</td>
+      <td>8.59093961953748</td>
+    </tr>
+    <tr>
+      <td>INT8</td>
+      <td>8.591021385729238</td>
+    </tr>
+    <tr>
+      <td>INT4</td>
+      <td>8.591021385729238</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>INT8 and INT4 are byte-identical. The FP16 vs quantized gap is ~0.0001.</p>
+
+<h2 id="the-diagnosis">The diagnosis</h2>
+
+<p>The realization came from thinking about <em>when</em> the cache is read vs. written during a forward pass.</p>
+
+<p>In an autoregressive decode loop, at step <em>t</em>, the model computes Q for the current token, then attends over <code class="language-plaintext highlighter-rouge">[K_0, ..., K_{t-1}, K_t]</code> where the past <code class="language-plaintext highlighter-rouge">K_i</code> come from the cache. The cache is <strong>read</strong>.</p>
+
+<p>In a single-pass forward over a 2048-token window with an empty starting cache:</p>
+
+<ol>
+  <li>Model computes Q, K, V for all 2048 input positions directly from the input tokens.</li>
+  <li>Attention runs using these freshly-computed Q, K, V tensors.</li>
+  <li>K, V get written to the cache as a side effect.</li>
+</ol>
+
+<p>Step 3 is where quantization happens. But step 2, which determines the logits, which determine the perplexity uses the <strong>un-cached, freshly-computed</strong> K and V.</p>
+
+<p><strong>The cache is write-only during a single forward pass.</strong> Quantization affects what’s stored. It does not affect what’s used.</p>
+
+<p>Hence INT8 and INT4 produce identical attention math (both backed by the same un-quantized K, V from the current input), identical logits, and identical perplexity to fifteen decimals.</p>
+
+<h2 id="why-fp16-differs-by-a-tiny-amount">Why FP16 differs by a tiny amount</h2>
+
+<p><code class="language-plaintext highlighter-rouge">DynamicCache</code> (the FP16 path) and <code class="language-plaintext highlighter-rouge">QuantizedCache</code> (INT8/INT4) are different Python classes with different <code class="language-plaintext highlighter-rouge">update()</code> implementations. Even when functionally equivalent for an empty starting cache, they take slightly different code paths (different intermediate tensor allocations, slightly different memory layouts, different order of operations).</p>
+
+<p>The ~0.0001 gap between FP16 and quantized variants has nothing to do with quantization fidelity. It’s just <em>“different class instance -&gt; different floating-point round-off.”</em></p>
+
+<h2 id="the-fix-two-pass-evaluation">The fix: two-pass evaluation</h2>
+
+<p>To exercise the quantized cache, you need a forward pass that <em>reads</em> it. Split each window into two passes:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">prefix</span> <span class="o">=</span> <span class="n">window</span><span class="p">[:,</span> <span class="p">:</span><span class="n">L</span> <span class="o">-</span> <span class="n">score_len</span><span class="p">]</span>   <span class="c1"># 1536 tokens
+</span><span class="n">suffix</span> <span class="o">=</span> <span class="n">window</span><span class="p">[:,</span> <span class="n">L</span> <span class="o">-</span> <span class="n">score_len</span><span class="p">:]</span>   <span class="c1"># 512 tokens
+</span>
+<span class="n">cache</span> <span class="o">=</span> <span class="nf">cache_factory</span><span class="p">()</span>  <span class="c1"># fresh QuantizedCache
+</span>
+<span class="k">with</span> <span class="n">torch</span><span class="p">.</span><span class="nf">inference_mode</span><span class="p">():</span>
+    <span class="c1"># Pass 1: populate the cache (writes get quantized)
+</span>    <span class="n">_</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">past_key_values</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">logits_to_keep</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># Pass 2: read from the quantized cache
+</span>    <span class="n">output</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">suffix</span><span class="p">,</span> <span class="n">past_key_values</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c1"># We calculate nll and perplexity from the second pass
+</span><span class="n">shift_logits</span> <span class="o">=</span> <span class="n">output</span><span class="p">.</span><span class="n">logits</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+<span class="n">shift_labels</span> <span class="o">=</span> <span class="n">suffix</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="p">.</span><span class="nf">cross_entropy</span><span class="p">(</span>
+    <span class="n">shift_logits</span><span class="p">.</span><span class="nf">float</span><span class="p">().</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span>
+    <span class="n">shift_labels</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">reduction</span><span class="o">=</span><span class="sh">'</span><span class="s">sum</span><span class="sh">'</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>In Pass 1, the cache fills up. HQQ’s residual buffer flushes every 64 tokens, quantizing those 64 K and V vectors into the main quantized buffer. By the end of Pass 1, the cache holds 1536 tokens in quantized form.</p>
+
+<p>In Pass 2, the suffix’s 512 tokens have Q computed fresh from input. But attention needs K and V over the full sequence, meaning it reads the prefix’s K and V back from the cache. For <code class="language-plaintext highlighter-rouge">QuantizedCache</code>, that read <strong>dequantizes</strong> INT4 or INT8 storage back to FP16 on the fly. The reconstructed values carry quantization noise, and the noise propagates into the suffix’s attention scores and logits.</p>
+
+<p>INT4’s coarser quantization (16 levels vs INT8’s 256) produces larger reconstruction error, which leads to measurably worse perplexity.</p>
+
+<h2 id="the-corrected-numbers">The corrected numbers</h2>
+
+<p>After re-running with two-pass eval:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variant</th>
+      <th>Perplexity</th>
+      <th>Δ vs FP16</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FP16</td>
+      <td>8.5916</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>INT8</td>
+      <td>8.5943</td>
+      <td>+0.0027 (+0.03%)</td>
+    </tr>
+    <tr>
+      <td>INT4</td>
+      <td>9.0431</td>
+      <td>+0.4515 (<strong>+5.3%</strong>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>INT8 is essentially free: 0.03% perplexity for ~2x cache compression. 
+INT4 pays a real cost: 5.3% perplexity for ~3.6x compression. 
+<strong>That’s the actual tradeoff</strong> that single-pass eval was hiding.</p>
+
+<p>The numbers broadly agree with literature: KIVI’s 2-bit <em>asymmetric</em> scheme on Llama-2 stays within ~0.1–0.3 perplexity of FP16. My naive symmetric uniform INT4 lands at +0.45, slightly worse than KIVI’s 2-bit because KIVI’s asymmetric K/V handling (per-channel K, per-token V) is specifically designed for cache distributions, where K has outliers and V is well-behaved.</p>
+
+<h2 id="the-general-lesson">The general lesson</h2>
+
+<p>KV cache quantization affects inference <strong>between</strong> forward passes, not <strong>within</strong> a single one. To benchmark its effect on quality, your evaluation has to span at least two forwards that exchange a cache.</p>
+
+<p>Standard sliding-window perplexity, as commonly written in the HuggingFace docs and most tutorials, is a single-pass workload. It’s the right way to evaluate base model quality.</p>
+
+<p>How to fix the methodology:</p>
+
+<p><strong>Two-pass eval per window</strong>: Each window’s cache is populated by a prefix forward, then evaluated by a suffix forward. Fast, simple, costs about one token of evaluation per window.</p>
+
+<p>If you find yourself benchmarking <em>anything</em> that modifies the KV cache like quantization, sparsity, eviction, sliding window, check whether your evaluation actually exercises the cache or just writes to it.</p>
+
+<h2 id="references">References</h2>
+
+<ul>
+  <li>Liu, Z., et al. (2024). <em>KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache.</em>.</li>
+  <li>Hooper, C., et al. (2024). <em>KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization.</em>.</li>
+  <li>Badri, H., &amp; Shaji, A. <em>HQQ: Half-Quadratic Quantization for Large Language Models.</em>.</li>
+  <li>HuggingFace Transformers documentation: <em>Perplexity of fixed-length models.</em></li>
+</ul>]]></content><author><name></name></author><category term="machine-learning" /><category term="llm-inference" /><category term="quantization" /><category term="kv-cache" /><category term="benchmarking" /><summary type="html"><![CDATA[When the standard sliding-window perplexity test produced identical numbers to fifteen decimals, the methodology was the bug, not the quantization.]]></summary></entry><entry><title type="html">T4 GPU + Llama: why your attention OOMs at 16K and the one-line fix</title><link href="https://aswnrj.github.io/blog/2026/flashattention-t4/" rel="alternate" type="text/html" title="T4 GPU + Llama: why your attention OOMs at 16K and the one-line fix" /><published>2026-05-03T12:00:00+00:00</published><updated>2026-05-03T12:00:00+00:00</updated><id>https://aswnrj.github.io/blog/2026/flashattention-t4</id><content type="html" xml:base="https://aswnrj.github.io/blog/2026/flashattention-t4/"><![CDATA[<p>I was benchmarking Llama 3.2-1B inference on a free Google Colab T4 GPU, hoping to push the KV cache out to 16K context. The job OOMed at 4K. I needed long-context numbers to be meaningful.</p>
 
 <p>Nothing in the error pointed at anything obviously wrong. The model loaded fine, a small input forward pass was fine, the memory usage looked normal until it didn’t. Somewhere between sequence length 2048 and 8192, GPU memory blew past the 16 GB ceiling.</p>
 

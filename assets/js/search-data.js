@@ -23,7 +23,18 @@ ninja.data = [{
           handler: () => {
             window.location.href = "/projects/";
           },
-        },{id: "post-t4-gpu-llama-why-your-attention-ooms-at-16k-and-the-one-line-fix",
+        },{id: "post-why-my-int4-and-int8-kv-cache-quantization-gave-bitwise-identical-perplexity",
+        
+          title: "Why my INT4 and INT8 KV cache quantization gave bitwise-identical perplexity",
+        
+        description: "When the standard sliding-window perplexity test produced identical numbers to fifteen decimals, the methodology was the bug, not the quantization.",
+        section: "Posts",
+        handler: () => {
+          
+            window.location.href = "/blog/2026/two-pass-perplexity/";
+          
+        },
+      },{id: "post-t4-gpu-llama-why-your-attention-ooms-at-16k-and-the-one-line-fix",
         
           title: "T4 GPU + Llama: why your attention OOMs at 16K and the one-line...",
         
