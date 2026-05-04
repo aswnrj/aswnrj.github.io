@@ -307,7 +307,7 @@
 <strong>T4 is from 2018</strong>, with compute capability 7.5 (Turing). FlashAttention 2 and modern cuDNN attention paths require 8.0+ (Ampere). Hence both are unavailable.</li>
   <li>
 <strong>PyTorch’s</strong> <code class="language-plaintext highlighter-rouge">scaled_dot_product_attenion</code> <strong>(SDPA)</strong> is a dispatcher, not a single kernel. It picks one of four backends at runtime based on hardware, mask shape and a few other features.</li>
-  <li>With <strong>T4 + Llama’s 4D attention mask</strong>, SDPA falls through to math backend which materializes the full <code class="language-plaintext highlighter-rouge">[B, H, T, T]</code> attention score matrix. At sequence length 16K, that matrix alone is 16GB. Goodbye memory.</li>
+  <li>With <strong>T4 + Llama’s GQA</strong>, SDPA falls through to math backend which materializes the full <code class="language-plaintext highlighter-rouge">[B, H, T, T]</code> attention score matrix. At sequence length 16K, that matrix alone is 16GB. Goodbye memory.</li>
 </ul>
 
 <p>The fix is a single kwarg in <code class="language-plaintext highlighter-rouge">from_pretrained</code>. This post walks through why the default path falls over, what the fix actually does, and roughly what it costs in compile time and memory overhead. If you’ve ever seen attention OOM on a T4, V100, or any pre-Ampere GPU, this is for you.</p>
@@ -339,25 +339,29 @@
   </div>
 </div>
 
-<p>Pytorch’s <a href="https://docs.pytorch.org/docs/2.11/generated/torch.nn.functional.scaled_dot_product_attention.html" rel="external nofollow noopener" target="_blank"><code class="language-plaintext highlighter-rouge">scaled_dot_product_attention</code></a> (SDPA) looks like a single function:
-<code class="language-plaintext highlighter-rouge">out = F.scaled_dot_product_attention(Q, K, V, attn_mask=mask, is_causal=True)</code>
-It’s not. Underneath, it’s a dispatcher that picks one of four implementation backends at call time:</p>
+<p>Pytorch’s <a href="https://docs.pytorch.org/docs/2.11/generated/torch.nn.functional.scaled_dot_product_attention.html" rel="external nofollow noopener" target="_blank"><code class="language-plaintext highlighter-rouge">scaled_dot_product_attention</code></a> (SDPA) looks like a single function:</p>
+
+<p><code class="language-plaintext highlighter-rouge">out = F.scaled_dot_product_attention(Q, K, V, attn_mask=mask, is_causal=True)</code></p>
+
+<p>It’s not. Underneath, it’s a dispatcher that picks one of four implementation backends at call time:</p>
 <ol>
   <li>
-<strong>FlashAttention 2</strong>: Tri Dao et al.’s tiled, fused implementation. Never materializes the full attention score matrix in HBM; works on-chip in SRAM tiles. Hardware floor: Ampere (SM 8.0+).</li>
+<strong>FlashAttention 2</strong>: A tiled, fused implementation. Never materializes the full attention score matrix in HBM, works on-chip in SRAM tiles. Hardware floor: Ampere (SM 8.0+).</li>
   <li>
-<strong>Memory-efficient SDPA</strong>: xformers-derived. Similar tiling idea, broader hardware support thatn FlashAttention 2 but stricter constraints on mask shape.</li>
+<strong>Memory-efficient SDPA</strong>: xformers-derived and similar tiling idea. Broader hardware support than FlashAttention 2 but stricter constraints size of Q, K and V heads.</li>
   <li>
 <strong>cuDNN attention</strong>: NVIDIA’s path. Recent past modes also need Ampere+.</li>
   <li>
 <strong>Math backend</strong>: the textbook formulation. Compute <code class="language-plaintext highlighter-rouge">Q @ K^T</code>, apply mask, softmax, multiply by V. Always available, always correct, materializes the entire <code class="language-plaintext highlighter-rouge">[B, H, T, T]</code> score matrix in memory.</li>
 </ol>
 
-<p>The dispatcher tries them in order of “fastest the kernel author thought” to “slowest the kernel authour thought”. Flash 2 first, math last. The first backend whose constraints are satisfied wins. The choice depends on compute capability, tensor dtype, mask shape, whether <code class="language-plaintext highlighter-rouge">is_causal=True</code>, and a handful of other flags.</p>
+<p>The dispatcher tries them in order of most appropriate to least on the basis of various factors. Probably flash 2 first, math last. The first backend whose constraints are satisfied wins. The choice depends on compute capability, tensor dtype, mask shape, whether <code class="language-plaintext highlighter-rouge">is_causal=True</code>, and a handful of other flags.</p>
 
-<p>Two properties matter for what comes next:
-<strong>The dispatcher is invisible.</strong> You wrote one function call. Whether you got the 4 GB-of-HBM math backend or a tiled fast kernel depends on configuration you can’t see at the API surface. There’s no warning when the dispatcher falls through.
-<strong>The constraints differ per backend.</strong> A mask shape that works in mem-efficient might disqualify cuDNN. A dtype that works in Flash 2 might not in mem-efficient. The matrix of (backend x constraint) is large and sparsely documented.</p>
+<p>The most important detail:</p>
+<ul>
+  <li>
+<strong>The dispatcher is invisible.</strong> You wrote one function call. Whether you got the 4 GB-of-HBM math backend or a tiled fast kernel depends on configuration you can’t see at the API surface. There’s no warning when the dispatcher falls through.</li>
+</ul>
 
 <p>If you want to see which backend was selected, PyTorch exposes context managers like <a href="https://docs.pytorch.org/docs/2.11/generated/torch.nn.attention.sdpa_kernel.html" rel="external nofollow noopener" target="_blank"><code class="language-plaintext highlighter-rouge">torch.nn.attention.sdpa_kernel(...)</code></a> to force or restrict backend, useful for debugging fall-through bugs. By default, you get whatever wins.</p>
 
@@ -390,13 +394,13 @@ It’s not. Underneath, it’s a dispatcher that picks one of four implementatio
 </div>
 
 <h3 id="flashattention-2-hardware-floor">FlashAttention 2: hardware floor</h3>
-<p>FlashAttention 2 uses Ampere-specific warp-level matrix instructions. The CUDA kernel is hand-written for these; there’s no graceful degradation to Turing. PyTorch’s dispatcher checks compute_capability &gt;= 8.0, T4 is 7.5, so Flash 2 is skipped immediately.</p>
+<p>FlashAttention 2 uses Ampere-specific warp-level matrix instructions. The CUDA kernel is hand-written for these and there’s no graceful degradation to Turing. PyTorch’s dispatcher checks compute_capability &gt;= 8.0, T4 is 7.5, so Flash 2 is skipped immediately.</p>
 
 <h3 id="cudnn-attention-hardware-floor">cuDNN attention: hardware floor</h3>
 <p>cuDNN 9.x’s fast attention API also targets Ampere+ tensor cores. Same hardware skip.</p>
 
 <h3 id="memory-efficient-sdpa-the-gqa-trap">Memory-efficient SDPA: the GQA trap</h3>
-<p>This is the one that matters. The mem-efficient backend (xformers-derived, Haziza et al. originally) uses block-wise tiled softmax and runs fine on T4 architecturally.</p>
+<p>This is the one that matters. The mem-efficient backend uses block-wise tiled softmax and runs fine on T4 architecturally.</p>
 
 <p>But there’s a constraint I missed: the fused kernels require Q, K, V to have the same number of heads. Llama 3.2-1B uses GQA with 32 Q heads and 8 KV heads (a 4x ratio). transformers passes the tensors at their native shapes: Q is <code class="language-plaintext highlighter-rouge">[1, 32, T, 64]</code>, K and V are <code class="language-plaintext highlighter-rouge">[1, 8, T, 64]</code></p>
 
@@ -415,18 +419,16 @@ It’s not. Underneath, it’s a dispatcher that picks one of four implementatio
 
 <ol>
   <li>
-<strong>Score matrix</strong>: $S = Q \cdot K^\top$ — shape <code class="language-plaintext highlighter-rouge">[B, H, T_q, T_kv]</code>.</li>
+<strong>Score matrix</strong>: $S = Q \cdot K^\top$ — shape <code class="language-plaintext highlighter-rouge">[B, H, T, T]</code>.</li>
   <li>
 <strong>Mask</strong>:  fill masked positions with $-\infty$.</li>
   <li>
 <strong>Softmax</strong>: $P = \text{softmax}(S, \text{dim}=-1)$ (same shape as $S$).</li>
   <li>
-<strong>Output</strong>: $O = P \cdot V$ — shape <code class="language-plaintext highlighter-rouge">[B, H, T_q, d]</code>.</li>
+<strong>Output</strong>: $O = P \cdot V$ — shape <code class="language-plaintext highlighter-rouge">[B, H, T, d]</code>.</li>
 </ol>
 
-<p>Steps 1 and 3 each materialize a full <code class="language-plaintext highlighter-rouge">[B, H, T_q, T_kv]</code> tensor in HBM. That’s the problem.</p>
-
-<p>For <strong>Llama 3.2-1B in fp16</strong>, with $H = 32$ Q heads (the math backend operates on Q’s head count after GQA broadcast):</p>
+<p>Steps 1 and 3 each materialize a full <code class="language-plaintext highlighter-rouge">[B, H, T, T]</code> tensor in HBM. That’s the problem.</p>
 
 <table>
   <thead>
@@ -459,7 +461,7 @@ It’s not. Underneath, it’s a dispatcher that picks one of four implementatio
   </tbody>
 </table>
 
-<p>The score tensor <em>alone</em> — before the softmax intermediate, before the mask broadcast, before the matmul workspace, exceeds a T4’s 16 GB capacity at sequence length 16384.</p>
+<p>The score tensor <em>alone</em> before the softmax, mask and matmul workspace, exceeds a T4’s 16 GB capacity at sequence length 16384.</p>
 
 <p>At T=8192, my actual run threw the error:</p>
 
@@ -467,13 +469,13 @@ It’s not. Underneath, it’s a dispatcher that picks one of four implementatio
 GPU 0 has a total capacity of 14.56 GiB of which 3.43 GiB is free.
 </code></pre></div></div>
 
-<p>The 8 GiB allocation request is on the order of two score-matrix-sized tensors, consistent with the math kernel producing the score matrix and a separate softmax output. With the model weights and upstream activations already holding ~11 GiB, there’s no room.</p>
+<p>The 8 GiB allocation request is on the order of two score-matrix-sized tensors, consistent with the math kernel producing the score matrix and a separate softmax output.</p>
 
-<p>This is what the math backend does by design. It’s correct. It’s also fundamentally $O(T^2)$ in HBM. For long contexts on a small GPU, it’s a non-starter.</p>
+<p>This is what the math backend does by design. It’s correct. It’s also fundamentally $O(T^2)$ in HBM. We cannot support long contexts on a small GPU with this.</p>
 
 <h3 id="the-contrast-tiled-attention">The contrast: tiled attention</h3>
 
-<p>The fast backends solve this by <strong>never materializing the full score matrix.</strong> They tile the computation: for each block of Q, iterate over blocks of K and V, compute the partial scores in on-chip SRAM (kilobytes, not gigabytes), apply softmax incrementally (<a href="https://arxiv.org/pdf/1805.02867" rel="external nofollow noopener" target="_blank">online softmax — Milakov &amp; Gimelshein 2018</a>), and accumulate the output block by block.</p>
+<p>The fast backends solve this by <strong>never materializing the full score matrix.</strong> They tile the computation: for each block of Q, iterate over blocks of K and V, compute the partial scores in on-chip SRAM, apply softmax incrementally using <a href="https://arxiv.org/pdf/1805.02867" rel="external nofollow noopener" target="_blank">online softmax</a>, and accumulate the output block by block.</p>
 
 <p>The full <code class="language-plaintext highlighter-rouge">[B, H, T, T]</code> matrix is never materialized in HBM. Memory stays roughly $O(T)$ instead of $O(T^2)$.</p>
 
@@ -503,7 +505,7 @@ GPU 0 has a total capacity of 14.56 GiB of which 3.43 GiB is free.
   <li>
 <strong>It works on Turing (SM 7.5).</strong> Triton supports T4, V100, and other pre-Ampere architectures. The generated kernel doesn’t depend on Ampere-specific tensor core instructions.</li>
   <li>
-<strong>It handles arbitrary num_heads ratios.</strong> GQA’s 32-Q-head / 8-KV-head mismatch — the constraint that disqualifies the SDPA fused kernels is just a broadcast pattern in the Triton IR. K and V are virtually expanded inside the kernel.</li>
+<strong>It handles arbitrary num_heads ratios.</strong> GQA’s 32-Q-head / 8-KV-head mismatch — the constraint that disqualifies the memory-efficient SDPA is just a broadcast pattern in the Triton IR. K and V are virtually expanded inside the kernel.</li>
 </ol>
 
 <p>The architectural insight is that <strong>FlexAttention bypasses the SDPA dispatcher entirely.</strong> When <code class="language-plaintext highlighter-rouge">transformers</code> is configured with <code class="language-plaintext highlighter-rouge">attn_implementation="flex_attention"</code>, it swaps its SDPA-based attention layer for one that calls <code class="language-plaintext highlighter-rouge">flex_attention</code> directly with the appropriate <code class="language-plaintext highlighter-rouge">score_mod</code> for the model. None of the Flash 2 / cuDNN / mem-efficient / math fall-through chain runs at all, which means there’s no decision tree to lose to.</p>
@@ -563,20 +565,6 @@ GPU 0 has a total capacity of 14.56 GiB of which 3.43 GiB is free.
 <strong>Triton</strong> (auto-installed alongside modern PyTorch).</li>
 </ul>
 
-<h3 id="verifying-its-actually-running">Verifying it’s actually running</h3>
-
-<p>If you want to confirm the swap took effect, profile a forward pass:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">torch</span><span class="p">.</span><span class="n">profiler</span><span class="p">.</span><span class="nf">profile</span><span class="p">(</span><span class="n">activities</span><span class="o">=</span><span class="p">[</span><span class="n">torch</span><span class="p">.</span><span class="n">profiler</span><span class="p">.</span><span class="n">ProfilerActivity</span><span class="p">.</span><span class="n">CUDA</span><span class="p">])</span> <span class="k">as</span> <span class="n">prof</span><span class="p">:</span>
-    <span class="k">with</span> <span class="n">torch</span><span class="p">.</span><span class="nf">inference_mode</span><span class="p">():</span>
-        <span class="n">_</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">))</span>
-<span class="nf">print</span><span class="p">(</span><span class="n">prof</span><span class="p">.</span><span class="nf">key_averages</span><span class="p">().</span><span class="nf">table</span><span class="p">(</span><span class="n">sort_by</span><span class="o">=</span><span class="sh">"</span><span class="s">cuda_time_total</span><span class="sh">"</span><span class="p">,</span> <span class="n">row_limit</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
-</code></pre></div></div>
-
-<p>Look for kernel names containing <code class="language-plaintext highlighter-rouge">flex_attention</code> or <code class="language-plaintext highlighter-rouge">triton_</code> in the output. If you see <code class="language-plaintext highlighter-rouge">attention_math</code> entries, FlexAttention isn’t actually engaged.</p>
-
-<p>This is the headline fix, but it isn’t free. The next section covers what FlexAttention costs in compile time and memory overhead.</p>
-
 <hr>
 
 <h2 id="what-flexattention-costs">What FlexAttention costs</h2>
@@ -585,7 +573,7 @@ GPU 0 has a total capacity of 14.56 GiB of which 3.43 GiB is free.
 
 <h3 id="compile-time">Compile time</h3>
 
-<p>The first forward pass with a given input shape triggers <code class="language-plaintext highlighter-rouge">torch.compile</code> to JIT a Triton kernel which typically takes 1–30 seconds depending on shape and Triton’s compile cache state. Subsequent forwards at the <strong>same shape</strong> reuse the cached kernel and run at full speed.</p>
+<p>The first forward pass with a given input shape triggers <code class="language-plaintext highlighter-rouge">torch.compile</code> to JIT a Triton kernel which typically takes 1-30 seconds depending on shape and Triton’s compile cache state. Subsequent forwards at the <strong>same shape</strong> reuse the cached kernel and run at full speed.</p>
 
 <p>Different shapes recompile. A sweep across <code class="language-plaintext highlighter-rouge">[512, 1K, 2K, 4K, 8K, 16K]</code> sequence lengths triggers six compilations over the run. Standard mitigation: warm up before measuring. In my benchmark, <code class="language-plaintext highlighter-rouge">n_warmup=3</code> per sequence length absorbs compile time before the timed iterations start.</p>
 
@@ -596,10 +584,6 @@ GPU 0 has a total capacity of 14.56 GiB of which 3.43 GiB is free.
 <p>FlexAttention’s compile cache and Triton runtime state contribute some memory overhead, but at the scale this benchmark runs at, it’s small enough that I can’t cleanly isolate it from activations. At T=512, peak memory is 2.36 GiB; model weights alone account for 2.30 GiB, leaving roughly 60 MiB for KV cache (16 MiB), prefill activations, and any FlexAttention state combined. The workspace is real but modest.</p>
 
 <p>For the long-context use case FlexAttention is actually built for, any fixed overhead is dwarfed by what the math backend would have allocated for the score matrix.</p>
-
-<h3 id="when-compile-time-matters">When compile time matters</h3>
-
-<p>For interactive single-shot inference with variable input shapes, each new seq_len pays a fresh compile until the cache warms. For batch inference, benchmarks, or repeated workloads where shapes stabilize, the cost amortizes to nothing.</p>
 
 <h3 id="a-methodology-note">A methodology note</h3>
 
@@ -660,22 +644,18 @@ GPU 0 has a total capacity of 14.56 GiB of which 3.43 GiB is free.
   </tbody>
 </table>
 
-<p>FP16 weights with FP16 KV cache, batch size 1, single T4 (16 GB). Median of 10 timed runs after 3 warmup iterations. Full data and code at <a href="https://github.com/aswnrj/quantization-benchmark" rel="external nofollow noopener" target="_blank">github.com/aswnrj/quantization-benchmark</a>.</p>
+<p>FP16 weights, batch size 1, single T4 (16 GB). Median of 10 timed runs after 3 warmup iterations. Full data and code at <a href="https://github.com/aswnrj/quantization-benchmark" rel="external nofollow noopener" target="_blank">github.com/aswnrj/quantization-benchmark</a>.</p>
 
-<p>Three observations:</p>
+<p>Main observation:</p>
 
 <p><strong>Memory stays bounded.</strong> Peak at 16K is 3.82 GiB. Almost 12 GiB of headroom on a 16 GB T4. Extrapolating linearly, FP16 KV cache hits the device ceiling around T=32K. The default SDPA path doesn’t reach 16K at all on this GPU, the math backend OOMs allocating the score matrix.</p>
-
-<p><strong>Prefill throughput drops as ~1/T.</strong> At 16K, prefill takes ~120 seconds. Slow but bounded. Attention’s O(T²) per-forward cost means tok/s ∝ 1/T at long context. The math backend wouldn’t produce a number here, it would OOM long before completing the forward.</p>
-
-<p><strong>Decode is roughly flat in the 35–43 tok/s range.</strong> Single-token forwards through a populated cache barely care about cache length at this scale. Decode is dominated by per-step overhead (kernel launch, weight memory traffic), not by the seq-length-dependent attention math. The 2K outlier (28.7) is timing-noise on a shared Colab T4, the underlying signal across the rest of the sweep is flat.</p>
 
 <p>The headline finding: switching from <code class="language-plaintext highlighter-rouge">attn_implementation="sdpa"</code> (default) to <code class="language-plaintext highlighter-rouge">attn_implementation="flex_attention"</code> is the difference between <strong>running at all</strong> and <strong>OOMing</strong>, on any sequence length above ~4K with this model on this GPU.</p>
 
 <hr>
 <h2 id="takeaway">Takeaway</h2>
 
-<p>The interaction is hardware x backend x model architecture. None of the three is unusual on its own; together, they conspire to OOM at moderate sequence length on consumer GPUs.</p>
+<p>The interaction is hardware, backend and model architecture. None of the three is unusual on its own; together, they conspire to OOM at moderate sequence length on consumer GPUs.</p>
 
 <p>The lesson generalizes:</p>
 
