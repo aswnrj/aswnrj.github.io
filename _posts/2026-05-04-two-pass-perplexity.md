@@ -36,13 +36,13 @@ What I got:
 | INT8 | 8.591021385729238 |
 | INT4 | 8.591021385729238 |
 
-INT8 and INT4 are byte-identical. The FP16 vs quantized gap is ~0.0001 — a rounding error, not a quantization signal.
+INT8 and INT4 are byte-identical. The FP16 vs quantized gap is ~0.0001.
 
 ## The diagnosis
 
 The realization came from thinking about *when* the cache is read vs. written during a forward pass.
 
-In an autoregressive decode loop, the cache is load-bearing: at step *t*, the model computes Q for the current token, then attends over `[K_0, ..., K_{t-1}, K_t]` where the past `K_i` come from the cache. The cache is **read**. If those K values are quantized in storage, they get dequantized for the attention math, and quantization noise enters the logits.
+In an autoregressive decode loop, at step *t*, the model computes Q for the current token, then attends over `[K_0, ..., K_{t-1}, K_t]` where the past `K_i` come from the cache. The cache is **read**. 
 
 In a single-pass forward over a 2048-token window with an empty starting cache:
 
@@ -58,9 +58,9 @@ Hence INT8 and INT4 produce identical attention math (both backed by the same un
 
 ## Why FP16 differs by a tiny amount
 
-`DynamicCache` (the FP16 path) and `QuantizedCache` (INT8/INT4) are different Python classes with different `update()` implementations. Even when functionally equivalent for an empty starting cache, they take slightly different code paths — different intermediate tensor allocations, slightly different memory layouts, different order of operations. Floating-point non-associativity does the rest: the order of accumulations can shift the last bit.
+`DynamicCache` (the FP16 path) and `QuantizedCache` (INT8/INT4) are different Python classes with different `update()` implementations. Even when functionally equivalent for an empty starting cache, they take slightly different code paths (different intermediate tensor allocations, slightly different memory layouts, different order of operations). 
 
-The ~0.0001 gap between FP16 and quantized variants has nothing to do with quantization fidelity. It's just *"different class instance → different floating-point round-off."*
+The ~0.0001 gap between FP16 and quantized variants has nothing to do with quantization fidelity. It's just *"different class instance -> different floating-point round-off."*
 
 ## The fix: two-pass evaluation
 
@@ -72,11 +72,13 @@ suffix = window[:, L - score_len:]   # 512 tokens
 
 cache = cache_factory()  # fresh QuantizedCache
 
-# Pass 1: populate the cache (writes get quantized)
 with torch.inference_mode():
+    # Pass 1: populate the cache (writes get quantized)
     _ = model(prefix, past_key_values=cache, use_cache=True, logits_to_keep=1)
+    # Pass 2: read from the quantized cache
     output = model(suffix, past_key_values=cache, use_cache=True)
 
+# We calculate nll and perplexity from the second pass
 shift_logits = output.logits[:, :-1, :]
 shift_labels = suffix[:, 1:]
 loss = F.cross_entropy(
@@ -88,9 +90,9 @@ loss = F.cross_entropy(
 
 In Pass 1, the cache fills up. HQQ's residual buffer flushes every 64 tokens, quantizing those 64 K and V vectors into the main quantized buffer. By the end of Pass 1, the cache holds 1536 tokens in quantized form.
 
-In Pass 2, the suffix's 512 tokens have Q computed fresh from input. But attention needs K and V over the full sequence,meaning it reads the prefix's K and V back from the cache. For `QuantizedCache`, that read **dequantizes** INT4 or INT8 storage back to FP16 on the fly. The reconstructed values carry quantization noise, and the noise propagates into the suffix's attention scores and logits.
+In Pass 2, the suffix's 512 tokens have Q computed fresh from input. But attention needs K and V over the full sequence, meaning it reads the prefix's K and V back from the cache. For `QuantizedCache`, that read **dequantizes** INT4 or INT8 storage back to FP16 on the fly. The reconstructed values carry quantization noise, and the noise propagates into the suffix's attention scores and logits.
 
-INT4's coarser quantization (16 levels vs INT8's 256) produces larger reconstruction error → larger perturbation in attention scores → measurably worse perplexity.
+INT4's coarser quantization (16 levels vs INT8's 256) produces larger reconstruction error, which leads to measurably worse perplexity.
 
 ## The corrected numbers
 
@@ -102,8 +104,8 @@ After re-running with two-pass eval:
 | INT8 | 8.5943 | +0.0027 (+0.03%) |
 | INT4 | 9.0431 | +0.4515 (**+5.3%**) |
 
-INT8 is essentially free: 0.03% perplexity for ~2× cache compression. 
-INT4 pays a real cost: 5.3% perplexity for ~3.6× compression. 
+INT8 is essentially free: 0.03% perplexity for ~2x cache compression. 
+INT4 pays a real cost: 5.3% perplexity for ~3.6x compression. 
 **That's the actual tradeoff** that single-pass eval was hiding.
 
 The numbers broadly agree with literature: KIVI's 2-bit *asymmetric* scheme on Llama-2 stays within ~0.1–0.3 perplexity of FP16. My naive symmetric uniform INT4 lands at +0.45, slightly worse than KIVI's 2-bit because KIVI's asymmetric K/V handling (per-channel K, per-token V) is specifically designed for cache distributions, where K has outliers and V is well-behaved.
