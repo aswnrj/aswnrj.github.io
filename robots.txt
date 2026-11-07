@@ -1,4 +1,4 @@
 User-agent: *
 Disallow:
 
-Sitemap: https://aswnrj.github.io/sitemap.xml
+Sitemap: https://aswnrj.dev/sitemap.xml
